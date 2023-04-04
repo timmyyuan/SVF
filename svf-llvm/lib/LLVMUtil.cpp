@@ -477,7 +477,7 @@ const std::string LLVMUtil::getSourceLoc(const Value* val )
     std::stringstream rawstr(str);
     rawstr << "{ ";
 
-    auto FmtLoc = [](std::string& fl, int ln, int cl) {
+    auto FmtLoc = [](const std::string& fl, int ln, int cl) {
         if (cl == -1) return fl + ":" + std::to_string(ln);
         return fl + ":" + std::to_string(ln) + ":" + std::to_string(cl);
     };
