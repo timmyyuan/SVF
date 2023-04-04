@@ -477,6 +477,11 @@ const std::string LLVMUtil::getSourceLoc(const Value* val )
     std::stringstream rawstr(str);
     rawstr << "{ ";
 
+    auto fmtloc = [](StringRef fl, int ln, int cl) {
+        if (cl == -1) return fl.str() + ":" + std::to_string(ln);
+        return fl.str() + ":" + std::to_string(ln) + ":" + std::to_string(cl);
+    };
+
     if (const Instruction* inst = SVFUtil::dyn_cast<Instruction>(val))
     {
         if (SVFUtil::isa<AllocaInst>(inst))
@@ -486,7 +491,8 @@ const std::string LLVMUtil::getSourceLoc(const Value* val )
                 if (llvm::DbgDeclareInst *DDI = SVFUtil::dyn_cast<llvm::DbgDeclareInst>(DII))
                 {
                     llvm::DIVariable *DIVar = SVFUtil::cast<llvm::DIVariable>(DDI->getVariable());
-                    rawstr << "ln: " << DIVar->getLine() << " fl: " << DIVar->getFilename().str();
+                    rawstr << fmtloc(DIVar->getFilename(), DIVar->getLine(), -1);
+                    // rawstr << "ln: " << DIVar->getLine() << " fl: " << DIVar->getFilename().str();
                     break;
                 }
             }
@@ -508,7 +514,8 @@ const std::string LLVMUtil::getSourceLoc(const Value* val )
                     File = inlineLoc->getFilename().str();
                 }
             }
-            rawstr << "ln: " << Line << "  cl: " << Column << "  fl: " << File;
+            rawstr << fmtloc(File, Line, Column);
+            // rawstr << "ln: " << Line << "  cl: " << Column << "  fl: " << File;
         }
     }
     else if (const Argument* argument = SVFUtil::dyn_cast<Argument>(val))
@@ -539,7 +546,8 @@ const std::string LLVMUtil::getSourceLoc(const Value* val )
 
                     if(DGV->getName() == gvar->getName())
                     {
-                        rawstr << "ln: " << DGV->getLine() << " fl: " << DGV->getFilename().str();
+                        rawstr << fmtloc(DGV->getFilename(), DGV->getLine(), -1);
+                        // rawstr << "ln: " << DGV->getLine() << " fl: " << DGV->getFilename().str();
                     }
 
                 }
