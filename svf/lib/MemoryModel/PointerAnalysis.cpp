@@ -326,6 +326,7 @@ void PointerAnalysis::printIndCSTargets(const CallICFGNode* cs, const FunctionSe
     outs() << "\nCallSite: ";
     outs() << cs->getCallSite()->toString();
     outs() << "\tLocation: " << cs->getCallSite()->getSourceLoc();
+    outs() << "\t @" << cs->getFun()->getName() << "<" << cs->getFun()->getSourceLoc() << ">";
     outs() << "\t with Targets: ";
 
     if (!targets.empty())
@@ -335,7 +336,7 @@ void PointerAnalysis::printIndCSTargets(const CallICFGNode* cs, const FunctionSe
         for (; fit != feit; ++fit)
         {
             const SVFFunction* callee = *fit;
-            outs() << "\n\t" << callee->getName();
+            outs() << "\n\t" << callee->getName() << " " << callee->getSourceLoc();
         }
     }
     else
@@ -374,6 +375,7 @@ void PointerAnalysis::printIndCSTargets()
             outs() << "\nCallSite: ";
             outs() << cs->getCallSite()->toString();
             outs() << "\tLocation: " << cs->getCallSite()->getSourceLoc();
+            outs() << "\t @" << cs->getFun()->getName() << "<" << cs->getFun()->getSourceLoc() << ">";
             outs() << "\n\t!!!has no targets!!!\n";
         }
     }
