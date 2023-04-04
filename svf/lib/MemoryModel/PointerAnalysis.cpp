@@ -326,7 +326,7 @@ void PointerAnalysis::printIndCSTargets(const CallICFGNode* cs, const FunctionSe
     outs() << "\nCallSite: ";
     outs() << cs->getCallSite()->toString();
     outs() << "\tLocation: " << cs->getCallSite()->getSourceLoc();
-    outs() << "\t @" << cs->getFun()->getName() << "<" << cs->getFun()->getSourceLoc() << ">";
+    outs() << "\t @" << cs->getFun()->getName() << cs->getFun()->getSourceLoc();
     outs() << "\t with Targets: ";
 
     if (!targets.empty())

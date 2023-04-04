@@ -592,7 +592,7 @@ const std::string LLVMUtil::getSourceLocOfFunction(const Function* F)
     if (llvm::DISubprogram *SP =  F->getSubprogram())
     {
         if (SP->describes(F))
-            rawstr << "in line: " << SP->getLine() << " file: " << SP->getFilename().str();
+            rawstr << SP->getFilename().str() << ":" << SP->getLine();
     }
     return rawstr.str();
 }
