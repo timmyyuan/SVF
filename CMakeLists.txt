@@ -48,7 +48,7 @@ endif()
 
 find_library(
   Z3_LIBRARIES
-  NAMES z3
+  NAMES "libz3.a"
   HINTS ${Z3_DIR} ENV Z3_DIR
   PATH_SUFFIXES bin lib)
 find_path(
