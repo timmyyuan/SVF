@@ -375,7 +375,7 @@ void PointerAnalysis::printIndCSTargets()
             outs() << "\nCallSite: ";
             outs() << cs->getCallSite()->toString();
             outs() << "\tLocation: " << cs->getCallSite()->getSourceLoc();
-            outs() << "\t @" << cs->getFun()->getName() << "<" << cs->getFun()->getSourceLoc() << ">";
+            outs() << "\t @" << cs->getFun()->getName() << cs->getFun()->getSourceLoc();
             outs() << "\n\t!!!has no targets!!!\n";
         }
     }
