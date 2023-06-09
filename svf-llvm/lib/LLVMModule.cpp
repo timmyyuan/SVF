@@ -31,7 +31,6 @@
 #include <algorithm>
 #include "Util/Options.h"
 #include "SVFIR/SVFModule.h"
-#include "SVFIR/SVFModuleRW.h"
 #include "Util/SVFUtil.h"
 #include "SVF-LLVM/BasicTypes.h"
 #include "SVF-LLVM/LLVMUtil.h"
@@ -70,50 +69,54 @@ using namespace SVF;
 #define SVF_GLOBAL_CTORS             "llvm.global_ctors"
 #define SVF_GLOBAL_DTORS             "llvm.global_dtors"
 
-LLVMModuleSet *LLVMModuleSet::llvmModuleSet = nullptr;
-std::string SVFModule::pagReadFromTxt = "";
+LLVMModuleSet* LLVMModuleSet::llvmModuleSet = nullptr;
+bool LLVMModuleSet::preProcessed = false;
 
-LLVMModuleSet::LLVMModuleSet(): svfModule(nullptr), cxts(nullptr), preProcessed(false)
+LLVMModuleSet::LLVMModuleSet()
+    : symInfo(SymbolTableInfo::SymbolInfo()),
+      svfModule(SVFModule::getSVFModule()), cxts(nullptr)
 {
-    symInfo = SymbolTableInfo::SymbolInfo();
 }
 
 SVFModule* LLVMModuleSet::buildSVFModule(Module &mod)
 {
-    double startSVFModuleTime = SVFStat::getClk(true);
-    svfModule = std::make_unique<SVFModule>(mod.getModuleIdentifier());
-    modules.emplace_back(mod);
+    LLVMModuleSet* mset = getLLVMModuleSet();
 
-    build();
+    double startSVFModuleTime = SVFStat::getClk(true);
+    SVFModule::getSVFModule()->setModuleIdentifier(mod.getModuleIdentifier());
+    mset->modules.emplace_back(mod);
+
+    mset->build();
     double endSVFModuleTime = SVFStat::getClk(true);
     SVFStat::timeOfBuildingLLVMModule = (endSVFModuleTime - startSVFModuleTime)/TIMEINTERVAL;
 
-    buildSymbolTable();
-
-    return svfModule.get();
+    mset->buildSymbolTable();
+    // Don't releaseLLVMModuleSet() here, as IRBuilder might still need LLVMMoudleSet
+    return SVFModule::getSVFModule();
 }
 
 SVFModule* LLVMModuleSet::buildSVFModule(const std::vector<std::string> &moduleNameVec)
 {
     double startSVFModuleTime = SVFStat::getClk(true);
 
-    assert(llvmModuleSet && "LLVM Module set needs to be created!");
+    LLVMModuleSet* mset = getLLVMModuleSet();
 
-    loadModules(moduleNameVec);
+    mset->loadModules(moduleNameVec);
 
     if (!moduleNameVec.empty())
-        svfModule = std::make_unique<SVFModule>(*moduleNameVec.begin());
-    else
-        svfModule = std::make_unique<SVFModule>();
+    {
+        SVFModule::getSVFModule()->setModuleIdentifier(moduleNameVec.front());
+    }
 
-    build();
+    mset->build();
 
     double endSVFModuleTime = SVFStat::getClk(true);
-    SVFStat::timeOfBuildingLLVMModule = (endSVFModuleTime - startSVFModuleTime)/TIMEINTERVAL;
+    SVFStat::timeOfBuildingLLVMModule =
+        (endSVFModuleTime - startSVFModuleTime) / TIMEINTERVAL;
 
-    buildSymbolTable();
-
-    return svfModule.get();
+    mset->buildSymbolTable();
+    // Don't releaseLLVMModuleSet() here, as IRBuilder might still need LLVMMoudleSet
+    return SVFModule::getSVFModule();
 }
 
 void LLVMModuleSet::buildSymbolTable() const
@@ -124,7 +127,7 @@ void LLVMModuleSet::buildSymbolTable() const
         /// building symbol table
         DBOUT(DGENERAL, SVFUtil::outs() << SVFUtil::pasMsg("Building Symbol table ...\n"));
         SymbolTableBuilder builder(symInfo);
-        builder.buildMemModel(svfModule.get());
+        builder.buildMemModel(svfModule);
     }
     double endSymInfoTime = SVFStat::getClk(true);
     SVFStat::timeOfBuildingSymbolTable =
@@ -148,6 +151,7 @@ void LLVMModuleSet::build()
 
 void LLVMModuleSet::createSVFDataStructure()
 {
+    getSVFType(IntegerType::getInt8Ty(getContext()));
 
     for (const Module& mod : modules)
     {
@@ -225,6 +229,15 @@ void LLVMModuleSet::createSVFDataStructure()
                 alias.getName().str(), getSVFType(alias.getType()));
             svfModule->addAliasSet(svfalias);
             addGlobalValueMap(&alias, svfalias);
+        }
+
+        /// GlobalIFunc
+        for (const GlobalIFunc& ifunc : mod.ifuncs())
+        {
+            SVFGlobalValue* svfifunc = new SVFGlobalValue(
+                ifunc.getName().str(), getSVFType(ifunc.getType()));
+            svfModule->addAliasSet(svfifunc);
+            addGlobalValueMap(&ifunc, svfifunc);
         }
     }
 }
@@ -317,8 +330,9 @@ void LLVMModuleSet::initDomTree(SVFFunction* svffun, const Function* fun)
     LLVMUtil::getFunReachableBBs(fun, reachableBBs);
     ld->setReachableBBs(reachableBBs);
 
-    for (const BasicBlock &bb : fun->getBasicBlockList())
+    for (Function::const_iterator bit = fun->begin(), beit = fun->end(); bit!=beit; ++bit)
     {
+        const BasicBlock &bb = *bit;
         SVFBasicBlock* svfBB = getSVFBasicBlock(&bb);
         if (DomTreeNode* dtNode = dt.getNode(&bb))
         {
@@ -367,7 +381,7 @@ void LLVMModuleSet::prePassSchedule()
     /// MergeFunctionRets Pass
     std::unique_ptr<UnifyFunctionExitNodes> p2 =
         std::make_unique<UnifyFunctionExitNodes>();
-    for (Module &M : LLVMModuleSet::getLLVMModuleSet()->getLLVMModules())
+    for (Module &M : getLLVMModules())
     {
         for (auto F = M.begin(), E = M.end(); F != E; ++F)
         {
@@ -381,8 +395,9 @@ void LLVMModuleSet::prePassSchedule()
 
 void LLVMModuleSet::preProcessBCs(std::vector<std::string> &moduleNameVec)
 {
-    loadModules(moduleNameVec);
-    prePassSchedule();
+    LLVMModuleSet* mset = getLLVMModuleSet();
+    mset->loadModules(moduleNameVec);
+    mset->prePassSchedule();
 
     std::string preProcessSuffix = ".pre.bc";
     // Get the existing module names, remove old extention, add preProcessSuffix
@@ -393,9 +408,8 @@ void LLVMModuleSet::preProcessBCs(std::vector<std::string> &moduleNameVec)
         moduleNameVec[i] = (rawName + preProcessSuffix);
     }
 
-    dumpModulesToFile(preProcessSuffix);
+    mset->dumpModulesToFile(preProcessSuffix);
     preProcessed = true;
-
     releaseLLVMModuleSet();
 }
 
@@ -768,7 +782,7 @@ void LLVMModuleSet::buildGlobalDefToRepMap()
 }
 
 // Dump modules to files
-void LLVMModuleSet::dumpModulesToFile(const std::string suffix)
+void LLVMModuleSet::dumpModulesToFile(const std::string& suffix)
 {
     for (Module& mod : modules)
     {
@@ -949,8 +963,7 @@ SVFType* LLVMModuleSet::getSVFType(const Type* T)
     /// [getPointerTo(): char   ----> i8*]
     /// [getPointerTo(): int    ----> i8*]
     /// [getPointerTo(): struct ----> i8*]
-    PointerType* ptrTy =
-        PointerType::getInt8PtrTy(getContext())->getPointerTo();
+    PointerType* ptrTy = PointerType::getInt8PtrTy(getContext());
     svfType->setPointerTo(SVFUtil::cast<SVFPointerType>(getSVFType(ptrTy)));
     return svfType;
 }
@@ -999,12 +1012,25 @@ SVFType* LLVMModuleSet::addSVFTypeInfo(const Type* T)
         svftype = new SVFIntegerType();
     else if (const FunctionType* ft = SVFUtil::dyn_cast<FunctionType>(T))
         svftype = new SVFFunctionType(getSVFType(ft->getReturnType()));
-    else if (SVFUtil::isa<StructType>(T))
-        svftype = new SVFStructType();
-    else if (SVFUtil::isa<ArrayType>(T))
-        svftype = new SVFArrayType();
+    else if (const StructType* st = SVFUtil::dyn_cast<StructType>(T))
+    {
+        auto svfst = new SVFStructType;
+        svfst->getName() = st->getName().str();
+        svftype = svfst;
+    }
+    else if (const auto at = SVFUtil::dyn_cast<ArrayType>(T))
+    {
+        auto svfat = new SVFArrayType();
+        svfat->setNumOfElement(at->getNumElements());
+        svfat->setTypeOfElement(getSVFType(at->getElementType()));
+        svftype = svfat;
+    }
     else
-        svftype = new SVFOtherType(T->isSingleValueType());
+    {
+        auto ot = new SVFOtherType(T->isSingleValueType());
+        llvm::raw_string_ostream(ot->getRepr()) << *T;
+        svftype = ot;
+    }
 
     symInfo->addTypeInfo(svftype);
     LLVMType2SVFType[T] = svftype;
@@ -1040,8 +1066,9 @@ StInfo* LLVMModuleSet::collectArrayInfo(const ArrayType* ty)
     /// Array's flatten field infor is the same as its element's
     /// flatten infor.
     StInfo* elemStInfo = collectTypeInfo(elemTy);
-    u32_t nfE = elemStInfo->getNumOfFlattenFields();
-    for (u32_t j = 0; j < nfE; j++)
+    u32_t nfF = elemStInfo->getNumOfFlattenFields();
+    u32_t nfE = elemStInfo->getNumOfFlattenElements();
+    for (u32_t j = 0; j < nfF; j++)
     {
         const SVFType* fieldTy = elemStInfo->getFlattenFieldTypes()[j];
         stInfo->getFlattenFieldTypes().push_back(fieldTy);
@@ -1060,14 +1087,14 @@ StInfo* LLVMModuleSet::collectArrayInfo(const ArrayType* ty)
     {
         for (u32_t j = 0; j < nfE; ++j)
         {
-            const SVFType* et = elemStInfo->getFlattenFieldTypes()[j];
+            const SVFType* et = elemStInfo->getFlattenElementTypes()[j];
             stInfo->getFlattenElementTypes().push_back(et);
         }
     }
 
     assert(stInfo->getFlattenElementTypes().size() == nfE * totalElemNum &&
            "typeForArray size incorrect!!!");
-    stInfo->setNumOfFieldsAndElems(nfE, nfE * totalElemNum);
+    stInfo->setNumOfFieldsAndElems(nfF, nfE * totalElemNum);
 
     return stInfo;
 }
@@ -1095,23 +1122,22 @@ StInfo* LLVMModuleSet::collectStructInfo(const StructType* structTy,
         if (SVFUtil::isa<StructType, ArrayType>(elemTy))
         {
             StInfo* subStInfo = collectTypeInfo(elemTy);
-            u32_t nfE = subStInfo->getNumOfFlattenFields();
+            u32_t nfF = subStInfo->getNumOfFlattenFields();
+            u32_t nfE = subStInfo->getNumOfFlattenElements();
             // Copy ST's info, whose element 0 is the size of ST itself.
-            for (u32_t j = 0; j < nfE; ++j)
+            for (u32_t j = 0; j < nfF; ++j)
             {
                 const SVFType* elemTy = subStInfo->getFlattenFieldTypes()[j];
                 stInfo->getFlattenFieldTypes().push_back(elemTy);
             }
-            numFields += nfE;
-            strideOffset += nfE * subStInfo->getStride();
-            for (u32_t tpi = 0; tpi < subStInfo->getStride(); ++tpi)
+            numFields += nfF;
+            strideOffset += nfE;
+            for (u32_t tpj = 0; tpj < nfE; ++tpj)
             {
-                for (u32_t tpj = 0; tpj < nfE; ++tpj)
-                {
-                    const SVFType* ty = subStInfo->getFlattenFieldTypes()[tpj];
-                    stInfo->getFlattenElementTypes().push_back(ty);
-                }
+                const SVFType* ty = subStInfo->getFlattenElementTypes()[tpj];
+                stInfo->getFlattenElementTypes().push_back(ty);
             }
+
         }
         else
         {

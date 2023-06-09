@@ -58,6 +58,7 @@ typedef u32_t EdgeID;
 typedef unsigned SymID;
 typedef unsigned CallSiteID;
 typedef unsigned ThreadID;
+typedef s64_t APOffset;
 
 typedef SparseBitVector<> NodeBS;
 typedef unsigned PointsToID;
@@ -130,8 +131,6 @@ typedef Set<VersionedVar> VersionedVarSet;
  */
 class StInfo
 {
-    friend class SVFModuleWrite;
-    friend class SVFModuleRead;
     friend class SVFIRWriter;
     friend class SVFIRReader;
 
@@ -242,8 +241,6 @@ public:
 
 class SVFType
 {
-    friend class SVFModuleWrite;
-    friend class SVFModuleRead;
     friend class SVFIRWriter;
     friend class SVFIRReader;
 
@@ -268,6 +265,7 @@ private:
     StInfo* typeinfo;   ///< SVF's TypeInfo
     bool isSingleValTy; ///< The type represents a single value, not struct or
     ///< array
+
 protected:
     SVFType(bool svt, SVFTyKind k)
         : kind(k), getPointerToTy(nullptr), typeinfo(nullptr),
@@ -284,9 +282,11 @@ public:
         return kind;
     }
 
-    /// Needs to be implemented by a specific SVF front end (e.g., the
-    /// implementation in LLVMUtil)
-    virtual const std::string toString() const;
+    /// Note: Use `os<<svfType` or `svfType.print(os)` when possible to avoid
+    /// string concatenation.
+    std::string toString() const;
+
+    virtual void print(std::ostream& OS) const = 0;
 
     inline void setPointerTo(const SVFPointerType* ty)
     {
@@ -327,10 +327,10 @@ public:
     }
 };
 
+std::ostream& operator<<(std::ostream& OS, const SVFType& type);
+
 class SVFPointerType : public SVFType
 {
-    friend class SVFModuleWrite;
-    friend class SVFModuleRead;
     friend class SVFIRWriter;
     friend class SVFIRReader;
 
@@ -350,6 +350,8 @@ public:
     {
         return ptrElementType;
     }
+
+    void print(std::ostream& OS) const override;
 };
 
 class SVFIntegerType : public SVFType
@@ -360,12 +362,12 @@ public:
     {
         return node->getKind() == SVFIntegerTy;
     }
+
+    void print(std::ostream& OS) const override;
 };
 
 class SVFFunctionType : public SVFType
 {
-    friend class SVFModuleWrite;
-    friend class SVFModuleRead;
     friend class SVFIRWriter;
     friend class SVFIRReader;
 
@@ -385,37 +387,96 @@ public:
     {
         return retTy;
     }
+
+    void print(std::ostream& OS) const override;
 };
 
 class SVFStructType : public SVFType
 {
+    friend class SVFIRWriter;
+    friend class SVFIRReader;
+
+private:
+    std::string name;
+
 public:
     SVFStructType() : SVFType(false, SVFStructTy) {}
+
     static inline bool classof(const SVFType* node)
     {
         return node->getKind() == SVFStructTy;
+    }
+
+    void print(std::ostream& OS) const override;
+
+    std::string& getName()
+    {
+        return name;
     }
 };
 
 class SVFArrayType : public SVFType
 {
+    friend class SVFIRWriter;
+    friend class SVFIRReader;
+
+private:
+    unsigned numOfElement; /// For printing
+    SVFType* typeOfElement; /// For printing
+
 public:
-    SVFArrayType() : SVFType(false, SVFArrayTy) {}
+    SVFArrayType()
+        : SVFType(false, SVFArrayTy), numOfElement(0), typeOfElement(nullptr)
+    {
+    }
+
     static inline bool classof(const SVFType* node)
     {
         return node->getKind() == SVFArrayTy;
+    }
+
+    void print(std::ostream& OS) const override;
+
+    void setTypeOfElement(SVFType* elemType)
+    {
+        typeOfElement = elemType;
+    }
+
+    void setNumOfElement(unsigned elemNum)
+    {
+        numOfElement = elemNum;
     }
 };
 
 class SVFOtherType : public SVFType
 {
+    friend class SVFIRWriter;
+    friend class SVFIRReader;
+
+private:
+    std::string repr; /// Field representation for printing
+
 public:
     SVFOtherType(bool isSingleValueTy) : SVFType(isSingleValueTy, SVFOtherTy) {}
+
     static inline bool classof(const SVFType* node)
     {
         return node->getKind() == SVFOtherTy;
     }
+
+    std::string& getRepr()
+    {
+        return repr;
+    }
+
+    void print(std::ostream& OS) const override;
 };
+
+/// [FOR DEBUG ONLY, DON'T USE IT UNSIDE `svf`!]
+/// Converts an SVFType to corresponding LLVM::Type, then get the string
+/// representation of it. Use it only when you are debugging. Don't use
+/// it in any SVF algorithm because it relies on information stored in LLVM bc.
+std::string dumpLLVMType(const SVFType* svfType);
 
 // TODO: be explicit that this is a pair of 32-bit unsigneds?
 template <> struct Hash<NodePair>

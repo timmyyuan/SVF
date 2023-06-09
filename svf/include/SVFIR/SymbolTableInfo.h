@@ -32,7 +32,7 @@
 
 
 #include "Util/SVFUtil.h"
-#include "MemoryModel/LocationSet.h"
+#include "MemoryModel/AccessPath.h"
 #include "SVFIR/SVFModule.h"
 namespace SVF
 {
@@ -333,7 +333,8 @@ public:
     virtual void dump();
 
     /// Given an offset from a Gep Instruction, return it modulus offset by considering memory layout
-    virtual LocationSet getModulusOffset(const MemObj* obj, const LocationSet& ls);
+    virtual APOffset getModulusOffset(const MemObj* obj,
+                                      const APOffset& apOffset);
 
     ///The struct type with the most fields
     const SVFType* maxStruct;
@@ -344,7 +345,8 @@ public:
     inline void addTypeInfo(const SVFType* ty)
     {
         bool inserted = svfTypes.insert(ty).second;
-        assert(inserted && "this type info has been added before");
+        if(!inserted)
+            assert(false && "this type info has been added before");
     }
 
     inline void addStInfo(StInfo* stInfo)
@@ -452,7 +454,7 @@ public:
     bool isConstDataOrConstGlobal() const;
     bool isConstDataOrAggData() const;
     bool hasPtrObj() const;
-    bool isNonPtrFieldObj(const LocationSet& ls) const;
+    bool isNonPtrFieldObj(const APOffset& apOffset) const;
     //@}
 
     /// Operator overloading
@@ -620,7 +622,7 @@ public:
     {
         return hasFlag(HASPTR_OBJ);
     }
-    virtual bool isNonPtrFieldObj(const LocationSet& ls);
+    virtual bool isNonPtrFieldObj(const APOffset& apOffset);
     //@}
 };
 

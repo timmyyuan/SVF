@@ -338,9 +338,9 @@ public:
     {
         return pag->getFIObjVar(id);
     }
-    inline NodeID getGepObjVar(NodeID id, const LocationSet& ls)
+    inline NodeID getGepObjVar(NodeID id, const APOffset& ap)
     {
-        return pag->getGepObjVar(id,ls);
+        return pag->getGepObjVar(id, ap);
     }
     virtual inline const NodeBS& getAllFieldsObjVars(NodeID id)
     {
@@ -388,8 +388,6 @@ public:
 
     /// Resolve indirect call edges
     virtual void resolveIndCalls(const CallICFGNode* cs, const PointsTo& target, CallEdgeMap& newEdges);
-    /// Match arguments for callsite at caller and callee
-    bool matchArgs(const CallICFGNode* cs, const SVFFunction* callee);
 
     /// CallGraph SCC related methods
     //@{

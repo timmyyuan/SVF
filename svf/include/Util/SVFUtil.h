@@ -200,6 +200,11 @@ inline CallSite getSVFCallSite(const SVFInstruction* inst)
     return cs;
 }
 
+/// Match arguments for callsite at caller and callee
+/// if the arg size does not match then we do not need to connect this parameter
+/// unless the callee is a variadic function (the first parameter of variadic function is its paramter number)
+bool matchArgs(const SVFInstruction* cs, const SVFFunction* callee);
+
 /// Return LLVM callsite given a value
 inline CallSite getSVFCallSite(const SVFValue* value)
 {
@@ -210,17 +215,24 @@ inline CallSite getSVFCallSite(const SVFValue* value)
 }
 
 /// Split into two substrings around the first occurrence of a separator string.
-inline std::vector<std::string> split(const std::string& s, char seperator)
+inline std::vector<std::string> split(const std::string& s, char separator)
 {
     std::vector<std::string> output;
     std::string::size_type prev_pos = 0, pos = 0;
-    while((pos = s.find(seperator, pos)) != std::string::npos)
+    while ((pos = s.find(separator, pos)) != std::string::npos)
     {
-        std::string substring( s.substr(prev_pos, pos-prev_pos) );
-        output.push_back(substring);
+        std::string substring(s.substr(prev_pos, pos - prev_pos));
+        if (!substring.empty())
+        {
+            output.push_back(substring);
+        }
         prev_pos = ++pos;
     }
-    output.push_back(s.substr(prev_pos, pos-prev_pos));
+    std::string lastSubstring(s.substr(prev_pos, pos - prev_pos));
+    if (!lastSubstring.empty())
+    {
+        output.push_back(lastSubstring);
+    }
     return output;
 }
 
@@ -297,6 +309,12 @@ void stopAnalysisLimitTimer(bool limitTimerSet);
 inline bool isExtCall(const SVFFunction* fun)
 {
     return fun && ExtAPI::getExtAPI()->is_ext(fun);
+}
+
+// Return true if extern function contains memset_like or memcpy_like operations
+inline bool isMemSetOrCpyExtFun(const SVFFunction* fun)
+{
+    return fun && ExtAPI::getExtAPI()->is_memset_or_memcpy(fun);
 }
 
 /// Return true if the call is a heap allocator/reallocator

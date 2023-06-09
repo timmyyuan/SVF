@@ -518,8 +518,16 @@
     "asprintf": {
         "return":  "int",
         "arguments":  "(char **restrict, const char *restrict, ...)",
-        "type": "EFT_NOOP",
-        "overwrite_app_function": 1
+        "type": "EFT_A0R_NEW",
+        "overwrite_app_function": 1,
+        "AddrStmt": {
+            "src": "Obj",
+            "dst": "Dummy"
+        },
+        "StoreStmt": {
+            "src": "Dummy",
+            "dst": "Arg0"
+        }
     },
     "atexit":   {
         "return":  "int",
@@ -1393,7 +1401,7 @@
     },
     "llvm.va_start":    {
         "return":  "void",
-        "arguments":  "(ptr)",
+        "arguments":  "(i8*)",
         "type": "EFT_NOOP",
         "overwrite_app_function": 1
     },
@@ -2192,8 +2200,16 @@
     "vasprintf":    {
         "return":  "int",
         "arguments":  "(char **, const char *, va_list)",
-        "type": "EFT_NOOP",
-        "overwrite_app_function": 1
+        "type": "EFT_A0R_NEW",
+        "overwrite_app_function": 1,
+        "AddrStmt": {
+            "src": "Obj",
+            "dst": "Dummy"
+        },
+        "StoreStmt": {
+            "src": "Dummy",
+            "dst": "Arg0"
+        }
     },
     "vfprintf": {
         "return":  "int",
@@ -3330,8 +3346,8 @@
 		}
     },
     "__sysv_signal":    {
-        "return":  "__sighandler_t",
-        "arguments":  "(int, __sighandler_t)",
+        "return":  "void (i32)*",
+        "arguments":  "(i32, void (i32)*)",
         "type": "EFT_ALLOC",
         "overwrite_app_function": 1,
         "AddrStmt": {
@@ -3340,8 +3356,8 @@
 		}
     },
     "signal":   {
-        "return":  "sighandler_t",
-        "arguments":  "(int, sighandler_t)",
+        "return":  "void (i32)*",
+        "arguments":  "(i32, void (i32)*)",
         "type": "EFT_ALLOC",
         "overwrite_app_function": 1,
         "AddrStmt": {
@@ -4974,35 +4990,55 @@
         "arguments":  "(i8*, i8, i32, i32, i1)",
         "type": "EFT_L_A0__A0R_A1",
         "overwrite_app_function": 0,
-        "memset_like": ["Arg0", "Arg1", "Arg2"]
+        "memset_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        }
     },
     "llvm.memset.p0i8.i32": {
         "return":  "void",
         "arguments":  "(i8*, i8, i32, i32, i1)",
         "type": "EFT_L_A0__A0R_A1",
         "overwrite_app_function": 0,
-        "memset_like": ["Arg0", "Arg1", "Arg2"]
+        "memset_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        }
     },
     "llvm.memset.p0i8.i64": {
         "return":  "void",
-        "arguments":  "(i8*, i8, i64, i32, i1)",
+        "arguments":  "(i8*, i8, i64, i1)",
         "type": "EFT_L_A0__A0R_A1",
         "overwrite_app_function": 0,
-        "memset_like": ["Arg0", "Arg1", "Arg2"]
+        "memset_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        }
     },
     "__memset_chk": {
         "return":  "void *",
         "arguments":  "(void *, int, size_t, size_t)",
         "type": "EFT_L_A0__A0R_A1",
         "overwrite_app_function": 0,
-        "memset_like": ["Arg0", "Arg1", "Arg2"]
+        "memset_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        }
     },
     "llvm.memcpy":  {
         "return":  "void",
         "arguments":  "(i8*, i8*, i32, i32, i1)",
         "type": "EFT_L_A0__A0R_A1R",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg0", "Arg1", "Arg2"],
+        "memcpy_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        },
         "CopyStmt": {
 			"src": "Arg0",
 			"dst": "Ret"
@@ -5013,7 +5049,11 @@
         "arguments":  "(i8*, i8*, i32, i32, i1)",
         "type": "EFT_L_A0__A0R_A1R",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg0", "Arg1", "Arg2"],
+        "memcpy_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        },
         "CopyStmt": {
 			"src": "Arg0",
 			"dst": "Ret"
@@ -5021,10 +5061,14 @@
     },
     "llvm.memcpy.p0i8.p0i8.i64":    {
         "return":  "void",
-        "arguments":  "(i8*, *i8, i64, i32, i1)",
+        "arguments":  "(i8*, i8*, i64, i1)",
         "type": "EFT_L_A0__A0R_A1R",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg0", "Arg1", "Arg2"],
+        "memcpy_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        },
         "CopyStmt": {
 			"src": "Arg0",
 			"dst": "Ret"
@@ -5035,7 +5079,11 @@
         "arguments":  "(i8*, i8*, i32, i1)",
         "type": "EFT_L_A0__A0R_A1R",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg0", "Arg1", "Arg2"],
+        "memcpy_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        },
         "CopyStmt": {
 			"src": "Arg0",
 			"dst": "Ret"
@@ -5046,7 +5094,11 @@
         "arguments":  "(i8*, i8*, i32, i1)",
         "type": "EFT_L_A0__A0R_A1R",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg0", "Arg1", "Arg2"],
+        "memcpy_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        },
         "CopyStmt": {
 			"src": "Arg0",
 			"dst": "Ret"
@@ -5057,7 +5109,11 @@
         "arguments":  "(i8*, i8*, i64, i1)",
         "type": "EFT_L_A0__A0R_A1R",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg0", "Arg1", "Arg2"],
+        "memcpy_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        },
         "CopyStmt": {
 			"src": "Arg0",
 			"dst": "Ret"
@@ -5068,7 +5124,11 @@
         "arguments":  "(void *restrict, const void *restrict, int, size_t)",
         "type": "EFT_L_A0__A0R_A1R",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg0", "Arg1", "Arg2"],
+        "memcpy_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        },
         "CopyStmt": {
 			"src": "Arg0",
 			"dst": "Ret"
@@ -5079,7 +5139,11 @@
         "arguments":  "(void *, const void *, size_t)",
         "type": "EFT_L_A0__A0R_A1R",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg0", "Arg1", "Arg2"],
+        "memcpy_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        },
         "CopyStmt": {
 			"src": "Arg0",
 			"dst": "Ret"
@@ -5090,32 +5154,36 @@
         "arguments":  "(void *, const void *, size_t)",
         "type": "EFT_L_A0__A0R_A1R",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg0", "Arg1", "Arg2"],
+        "memcpy_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        },
         "CopyStmt": {
 			"src": "Arg0",
 			"dst": "Ret"
 		}
-    },
-    "dlsym":    {
-        "return":  "void *",
-        "arguments":  "(void *, const char *)",
-        "type": "EFT_L_A1__FunPtr",
-        "overwrite_app_function": 0,
-        "funptr_ops":   ["Arg1"]
     },
     "bcopy":    {
         "return":  "void",
         "arguments":  "(const void *, void *, size_t)",
         "type": "EFT_A1R_A0R",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg1", "Arg0", "Arg2"]
+        "memcpy_like":  {
+            "src": "Arg1",
+            "dst": "Arg0",
+            "size": "Arg2"
+        }
     },
     "iconv":    {
         "return":  "size_t",
         "arguments":  "(iconv_t, char **restrict, size_t *restrict, char **restrict, size_t *restrict)",
         "type": "EFT_A3R_A1R_NS",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg3", "Arg1"]
+        "memcpy_like":  {
+            "src": "Arg3",
+            "dst": "Arg1"
+        }
     },
     "strtod":   {
         "return":  "double",
@@ -5192,7 +5260,11 @@
         "arguments":  "(char *, const char *, size_t)",
         "type": "EFT_L_A0__A1_A0",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg0", "Arg1", "Arg2"],
+        "memcpy_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        },
         "CopyStmt": {
 			"src": "Arg0",
 			"dst": "Ret"
@@ -5203,7 +5275,11 @@
         "arguments":  "(char *, const char *, size_t)",
         "type": "EFT_L_A0__A1_A0",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg0", "Arg1", "Arg2"],
+        "memcpy_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        },
         "CopyStmt": {
 			"src": "Arg0",
 			"dst": "Ret"
@@ -5214,7 +5290,10 @@
         "arguments":  "(char *restrict, const char *restrict)",
         "type": "EFT_L_A0__A1_A0",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg0", "Arg1"],
+        "memcpy_like":  {
+            "src": "Arg0",
+            "dst": "Arg1"
+        },
         "CopyStmt": {
 			"src": "Arg0",
 			"dst": "Ret"
@@ -5225,7 +5304,10 @@
         "arguments":  "(char *, char *)", 
         "type": "EFT_L_A0__A1_A0",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg0", "Arg1"],
+        "memcpy_like":  {
+            "src": "Arg0",
+            "dst": "Arg1"
+        },
         "CopyStmt": {
 			"src": "Arg0",
 			"dst": "Ret"
@@ -5236,7 +5318,10 @@
         "arguments":  "(char *, const char *)",
         "type": "EFT_L_A0__A1_A0",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg0", "Arg1"],
+        "memcpy_like":  {
+            "src": "Arg0",
+            "dst": "Arg1"
+        },
         "CopyStmt": {
 			"src": "Arg0",
 			"dst": "Ret"
@@ -5247,7 +5332,11 @@
         "arguments":  "(char *, const char *, size_t)",
         "type": "EFT_L_A0__A1_A0",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg0", "Arg1", "Arg2"],
+        "memcpy_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        },
         "CopyStmt": {
 			"src": "Arg0",
 			"dst": "Ret"
@@ -5258,7 +5347,11 @@
         "arguments":  "(char *, const char *, size_t)",
         "type": "EFT_L_A0__A1_A0",
         "overwrite_app_function": 0,
-        "memcpy_like":  ["Arg0", "Arg1", "Arg2"],
+        "memcpy_like":  {
+            "src": "Arg0",
+            "dst": "Arg1",
+            "size": "Arg2"
+        },
         "CopyStmt": {
 			"src": "Arg0",
 			"dst": "Ret"
@@ -5492,7 +5585,7 @@
     },
     "_ZNSt8__detail15_List_node_base7_M_hookEPS0_":{
         "return":  "void",
-        "arguments":  "(std::__detail::_List_node_base*)",
+        "arguments":  "(struct.std::__detail::_List_node_base*, struct.std::__detail::_List_node_base*)",
         "type": "EFT_STD_LIST_HOOK",
         "overwrite_app_function": 0,
         "StoreStmt": {
@@ -5716,6 +5809,25 @@
         "StoreStmt": {
             "src": "NullPtr",
             "dst": "Dummy"
+        }
+    },
+    "swapExtCallStmt":{
+        "return":  "void",
+        "arguments":  "(char **, char **)",
+        "type": "EFT_NOOP",
+        "overwrite_app_function": 0,
+        "CallStmt": {
+            "callee_name": "swap",
+            "callee_return": "void",
+            "callee_arguments": "(char **, char **)",
+            "CopyStmt1": {
+                "src": "swapExtCallStmt_Arg0",
+                "dst": "swap_Arg0"
+            },
+            "CopyStmt2": {
+                "src": "swapExtCallStmt_Arg1",
+                "dst": "swap_Arg1"
+            }
         }
     }
 }

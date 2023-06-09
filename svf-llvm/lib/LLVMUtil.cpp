@@ -560,7 +560,7 @@ const std::string LLVMUtil::getSourceLoc(const Value* val )
     }
     else if (const BasicBlock* bb = SVFUtil::dyn_cast<BasicBlock>(val))
     {
-        rawstr << "basic block: " << bb->getName().str() << " " << getSourceLoc(bb->getFirstNonPHI());
+        rawstr << "\"basic block\": " << bb->getName().str() << ", \"location\": " << getSourceLoc(bb->getFirstNonPHI());
     }
     else if(LLVMUtil::isConstDataOrAggData(val))
     {
@@ -688,6 +688,19 @@ bool LLVMUtil::isConstantObjSym(const Value* val)
         }
     }
     return LLVMUtil::isConstDataOrAggData(val);
+}
+
+const ConstantStruct *LLVMUtil::getVtblStruct(const GlobalValue *vtbl)
+{
+    const ConstantStruct *vtblStruct = SVFUtil::dyn_cast<ConstantStruct>(vtbl->getOperand(0));
+    assert(vtblStruct && "Initializer of a vtable not a struct?");
+
+    if (vtblStruct->getNumOperands() == 2 &&
+            SVFUtil::isa<ConstantStruct>(vtblStruct->getOperand(0)) &&
+            vtblStruct->getOperand(1)->getType()->isArrayTy())
+        return SVFUtil::cast<ConstantStruct>(vtblStruct->getOperand(0));
+
+    return vtblStruct;
 }
 
 bool LLVMUtil::isValVtbl(const Value* val)
@@ -1036,32 +1049,49 @@ namespace SVF
 {
 const std::string SVFValue::toString() const
 {
-    std::string str;
-    llvm::raw_string_ostream rawstr(str);
-    if (const SVF::SVFFunction* fun = SVFUtil::dyn_cast<SVFFunction>(this))
-    {
-        rawstr << "Function: " << fun->getName() << " ";
-    }
-    else if (const SVFBasicBlock* bb = SVFUtil::dyn_cast<SVFBasicBlock>(this))
-    {
-        rawstr << "BasicBlock: " << bb->getName() << " ";
-    }
-    else
-    {
-        const Value* val =
-            LLVMModuleSet::getLLVMModuleSet()->getLLVMValue(this);
-        rawstr << " " << *val << " ";
-    }
-    rawstr << this->getSourceLoc();
-    return rawstr.str();
+    // TODO: Should only use info in SVFValue. Refactor it later.
+    return dumpLLVMValue(this);
 }
 
-const std::string SVFType::toString() const
+std::string dumpLLVMValue(const SVFValue* svfValue)
 {
     std::string str;
     llvm::raw_string_ostream rawstr(str);
-    const Type* ty = LLVMModuleSet::getLLVMModuleSet()->getLLVMType(this);
+    if (LLVMModuleSet::getLLVMModuleSet()->getLLVMValue(svfValue) == nullptr)
+    {
+        assert((SVFUtil::isa<SVFInstruction>(svfValue) ||
+                SVFUtil::isa<SVFBasicBlock>(svfValue)) && "Manually created SVF call inst, actual parameter and BasicBlock by ExtAPI do not have LLVM value!");
+        rawstr << svfValue->getName();
+        return rawstr.str();
+    }
+    else
+    {
+        if (const SVF::SVFFunction* fun = SVFUtil::dyn_cast<SVFFunction>(svfValue))
+        {
+            rawstr << "Function: " << fun->getName() << " ";
+        }
+        else if (const SVFBasicBlock* bb = SVFUtil::dyn_cast<SVFBasicBlock>(svfValue))
+        {
+            rawstr << "BasicBlock: " << bb->getName() << " ";
+        }
+        else
+        {
+            const Value* val =
+                LLVMModuleSet::getLLVMModuleSet()->getLLVMValue(svfValue);
+            rawstr << " " << *val << " ";
+        }
+        rawstr << svfValue->getSourceLoc();
+        return rawstr.str();
+    }
+}
+
+std::string dumpLLVMType(const SVFType* svfType)
+{
+    std::string str;
+    llvm::raw_string_ostream rawstr(str);
+    const Type* ty = LLVMModuleSet::getLLVMModuleSet()->getLLVMType(svfType);
     rawstr << *ty;
     return rawstr.str();
 }
-}
+
+} // namespace SVF

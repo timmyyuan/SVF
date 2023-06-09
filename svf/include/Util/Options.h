@@ -121,7 +121,7 @@ public:
     // Sparse value-flow graph (VFG.cpp)
     static const Option<bool> DumpVFG;
 
-    // Location set for modeling abstract memory object (LocationSet.cpp)
+    // Location set for modeling abstract memory object (AccessPath.cpp)
     static const Option<bool> SingleStride;
 
     // Base class of pointer analyses (PointerAnalysis.cpp)
@@ -223,6 +223,9 @@ public:
     // Conditions.cpp
     static const Option<u32_t> MaxZ3Size;
 
+    // BoundedZ3Expr.cpp
+    static const Option<u32_t> MaxBVLen;
+
     // SaberCondAllocator.cpp
     static const Option<bool> PrintPathCond;
 
@@ -263,6 +266,7 @@ public:
     static const Option<bool>  CFLSVFG;
     static const Option<bool> POCRAlias;
     static const Option<bool> POCRHybrid;
+    static const Option<bool> Customized;
 
     // Loop Analysis
     static const Option<bool> LoopAnalysis;

@@ -253,7 +253,7 @@ const Option<bool> Options::DumpVFG(
 );
 
 
-// Location set for modeling abstract memory object (LocationSet.cpp)
+// Location set for modeling abstract memory object (AccessPath.cpp)
 const Option<bool> Options::SingleStride(
     "stride-only",
     "Only use single stride in LocMemoryModel",
@@ -688,6 +688,14 @@ const Option<u32_t> Options::MaxZ3Size(
     30
 );
 
+// BoundedZ3Expr.cpp
+const Option<u32_t> Options::MaxBVLen(
+    "max-bv-len",
+    "Maximum length limit for Z3 bitvector",
+    64
+);
+
+
 
 // SaberCondAllocator.cpp
 const Option<bool> Options::PrintPathCond(
@@ -858,6 +866,12 @@ const Option<bool> Options::POCRAlias(
 const Option<bool> Options::POCRHybrid(
     "pocr-hybrid",
     "When explicit to true, POCRHybridSolver transfer CFL graph to internal hybird graph representation.",
+    false
+);
+
+const Option<bool> Options::Customized(
+    "customized",
+    "When explicit to true, user can use any grammar file.",
     false
 );
 
