@@ -53,17 +53,16 @@ const std::string structName = "struct.";
  */
 bool LLVMUtil::isObject(const Value*  ref)
 {
-    bool createobj = false;
     if (SVFUtil::isa<Instruction>(ref) && SVFUtil::isStaticExtCall(LLVMModuleSet::getLLVMModuleSet()->getSVFInstruction(SVFUtil::cast<Instruction>(ref))) )
-        createobj = true;
+        return true;
     if (SVFUtil::isa<Instruction>(ref) && SVFUtil::isHeapAllocExtCallViaRet(LLVMModuleSet::getLLVMModuleSet()->getSVFInstruction(SVFUtil::cast<Instruction>(ref))))
-        createobj = true;
+        return true;
     if (SVFUtil::isa<GlobalVariable>(ref))
-        createobj = true;
+        return true;
     if (SVFUtil::isa<Function, AllocaInst>(ref))
-        createobj = true;
+        return true;
 
-    return createobj;
+    return false;
 }
 
 /*!
@@ -568,7 +567,7 @@ const std::string LLVMUtil::getSourceLoc(const Value* val )
     }
     else
     {
-        rawstr << "Can only get source location for instruction, argument, global var, function or constant data.";
+        rawstr << "N/A";
     }
     rawstr << " }";
 
@@ -667,10 +666,7 @@ bool LLVMUtil::isConstantObjSym(const Value* val)
             return false;
         else if (!v->hasInitializer())
         {
-            if(v->isExternalLinkage(v->getLinkage()))
-                return false;
-            else
-                return true;
+            return !v->isExternalLinkage(v->getLinkage());
         }
         else
         {
@@ -1047,20 +1043,15 @@ s32_t LLVMUtil::getVCallIdx(const CallBase* cs)
 
 namespace SVF
 {
-const std::string SVFValue::toString() const
-{
-    // TODO: Should only use info in SVFValue. Refactor it later.
-    return dumpLLVMValue(this);
-}
-
 std::string dumpLLVMValue(const SVFValue* svfValue)
 {
     std::string str;
     llvm::raw_string_ostream rawstr(str);
     if (LLVMModuleSet::getLLVMModuleSet()->getLLVMValue(svfValue) == nullptr)
     {
-        assert((SVFUtil::isa<SVFInstruction>(svfValue) ||
-                SVFUtil::isa<SVFBasicBlock>(svfValue)) && "Manually created SVF call inst, actual parameter and BasicBlock by ExtAPI do not have LLVM value!");
+        assert((SVFUtil::isa<SVFInstruction, SVFBasicBlock>(svfValue)) &&
+               "Manually created SVF call inst, actual parameter and "
+               "BasicBlock by ExtAPI do not have LLVM value!");
         rawstr << svfValue->getName();
         return rawstr.str();
     }
@@ -1087,11 +1078,8 @@ std::string dumpLLVMValue(const SVFValue* svfValue)
 
 std::string dumpLLVMType(const SVFType* svfType)
 {
-    std::string str;
-    llvm::raw_string_ostream rawstr(str);
     const Type* ty = LLVMModuleSet::getLLVMModuleSet()->getLLVMType(svfType);
-    rawstr << *ty;
-    return rawstr.str();
+    return LLVMUtil::llvmToString(*ty);
 }
 
 } // namespace SVF
