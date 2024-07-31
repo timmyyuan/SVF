@@ -31,6 +31,7 @@
 #include "SVFIR/SymbolTableInfo.h"
 #include <sstream>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/Path.h>
 
 using namespace SVF;
 
@@ -43,6 +44,56 @@ const std::string vfunPreLabel = "_Z";
 const std::string clsName = "class.";
 const std::string structName = "struct.";
 
+// Position factory functions
+const std::string UnknownFilename = "unknown";
+const std::string UnknownPosition = "unknown:0";
+
+namespace {
+using namespace llvm;
+
+std::string getAbspath(DIScope* S) {
+    if (llvm::sys::path::is_absolute(S->getFilename()) || S->getDirectory().empty()) {
+        return S->getFilename().str();
+    }
+
+    SmallString<128> Abspath(S->getDirectory());
+    sys::path::append(Abspath, S->getFilename());
+    return Abspath.str().str();
+}
+
+std::string getPosition(const Function* F)
+{
+    if (!F)
+        return UnknownPosition;
+
+    DISubprogram* SP = F->getSubprogram();
+    if (!SP)
+        return UnknownPosition;
+
+    unsigned Line = SP->getLine();
+
+    return getAbspath(SP) + ":" + std::to_string(Line);
+}
+
+std::string getPosition(const Instruction* I)
+{
+    if (!I)
+        return UnknownPosition;
+
+    DebugLoc DL = I->getDebugLoc();
+    if (!DL)
+        return UnknownPosition;
+
+    DIScope* Scope = dyn_cast_or_null<DIScope>(DL.getScope());
+    if (!Scope)
+        return UnknownPosition;
+
+    unsigned Row = DL.getLine();
+    unsigned Col = DL.getCol();
+
+    return getAbspath(Scope) + ":" + std::to_string(Row) + ":" + std::to_string(Col);
+}
+}
 
 /*!
  * A value represents an object if it is
@@ -611,31 +662,15 @@ const std::string LLVMUtil::getSourceLoc(const Value* val )
                 if (llvm::DbgDeclareInst *DDI = SVFUtil::dyn_cast<llvm::DbgDeclareInst>(DII))
                 {
                     llvm::DIVariable *DIVar = SVFUtil::cast<llvm::DIVariable>(DDI->getVariable());
-                    rawstr << FmtLoc(DIVar->getFilename().str(), DIVar->getLine(), -1);
+                    rawstr << FmtLoc(getAbspath(DIVar->getScope()), DIVar->getLine(), 0);
                     // rawstr << "ln: " << DIVar->getLine() << " fl: " << DIVar->getFilename().str();
                     break;
                 }
             }
         }
-        else if (MDNode *N = inst->getMetadata("dbg"))   // Here I is an LLVM instruction
+        else if (inst->getMetadata("dbg") != nullptr)   // Here I is an LLVM instruction
         {
-            llvm::DILocation* Loc = SVFUtil::cast<llvm::DILocation>(N);                   // DILocation is in DebugInfo.h
-            unsigned Line = Loc->getLine();
-            unsigned Column = Loc->getColumn();
-            std::string File = Loc->getFilename().str();
-            //StringRef Dir = Loc.getDirectory();
-            if(File.empty() || Line == 0)
-            {
-                auto inlineLoc = Loc->getInlinedAt();
-                if(inlineLoc)
-                {
-                    Line = inlineLoc->getLine();
-                    Column = inlineLoc->getColumn();
-                    File = inlineLoc->getFilename().str();
-                }
-            }
-            rawstr << FmtLoc(File, Line, Column);
-            // rawstr << "ln: " << Line << "  cl: " << Column << "  fl: " << File;
+            rawstr << getPosition(inst);
         }
     }
     else if (const Argument* argument = SVFUtil::dyn_cast<Argument>(val))
@@ -703,18 +738,7 @@ const std::string LLVMUtil::getSourceLoc(const Value* val )
  */
 const std::string LLVMUtil::getSourceLocOfFunction(const Function* F)
 {
-    std::string str;
-    std::stringstream rawstr(str);
-    /*
-     * https://reviews.llvm.org/D18074?id=50385
-     * looks like the relevant
-     */
-    if (llvm::DISubprogram *SP =  F->getSubprogram())
-    {
-        if (SP->describes(F))
-            rawstr << SP->getFilename().str() << ":" << SP->getLine();
-    }
-    return rawstr.str();
+    return getPosition(F);
 }
 
 /// Get the next instructions following control flow
